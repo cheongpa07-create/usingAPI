@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-Weather AI Dashboard</title>
+    <title>K-Weather & Music API Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f0f4f8; display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -15,8 +15,8 @@
         .temp { font-size: 3.5rem; font-weight: 800; color: #007bff; margin: 5px 0; }
         #desc-val { font-size: 1.2rem; color: #555; margin-bottom: 10px; }
         .chart-container { height: 220px; margin: 20px 0; padding: 10px; background: #fff; border-radius: 15px; }
-        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; min-height: 80px; }
-        #music-text { font-size: 0.95rem; line-height: 1.6; color: #333; margin: 0; font-weight: 500; }
+        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; min-height: 100px; }
+        #music-list { font-size: 0.9rem; line-height: 1.6; color: #333; margin: 0; padding-left: 20px; }
         .section-title { font-size: 0.8rem; color: #007bff; font-weight: bold; width: 100%; margin: 10px 0 5px; text-align: left; padding-left: 10px; }
     </style>
 </head>
@@ -24,29 +24,13 @@
 
 <div class="card">
     <div class="city-buttons">
-        <div class="section-title">대한민국 광역자치단체</div>
+        <div class="section-title">대한민국 주요 도시</div>
         <button class="city-btn" onclick="updateDashboard(37.5665, 126.9780, '서울특별시')">서울특별시</button>
         <button class="city-btn" onclick="updateDashboard(37.4563, 126.7052, '인천')">인천</button>
-        <button class="city-btn" onclick="updateDashboard(37.4138, 127.5183, '경기도')">경기도</button>
-        <button class="city-btn" onclick="updateDashboard(37.8228, 128.1555, '강원도')">강원도</button>
-        <button class="city-btn" onclick="updateDashboard(36.6353, 127.4913, '충청북도')">충청북도</button>
-        <button class="city-btn" onclick="updateDashboard(36.5184, 126.8000, '충청남도')">충청남도</button>
-        <button class="city-btn" onclick="updateDashboard(36.4846, 127.2892, '세종시')">세종시</button>
-        <button class="city-btn" onclick="updateDashboard(36.3504, 127.3845, '대전')">대전</button>
-        <button class="city-btn" onclick="updateDashboard(36.5760, 128.5056, '경상북도')">경상북도</button>
-        <button class="city-btn" onclick="updateDashboard(35.2371, 128.6911, '경상남도')">경상남도</button>
-        <button class="city-btn" onclick="updateDashboard(35.8714, 128.6014, '대구')">대구</button>
-        <button class="city-btn" onclick="updateDashboard(35.5384, 129.3114, '울산')">울산</button>
+        <button class="city-btn" onclick="updateDashboard(37.3943, 126.9568, '안양')">안양</button>
+        <button class="city-btn" onclick="updateDashboard(37.3212, 126.8308, '안산')">안산</button>
         <button class="city-btn" onclick="updateDashboard(35.1796, 129.0756, '부산')">부산</button>
-        <button class="city-btn" onclick="updateDashboard(34.8118, 126.3922, '전라남도')">전라남도</button>
-        <button class="city-btn" onclick="updateDashboard(35.8242, 127.1480, '전라북도')">전라북도</button>
-        <button class="city-btn" onclick="updateDashboard(35.1595, 126.8526, '광주')">광주</button>
         <button class="city-btn" onclick="updateDashboard(33.4996, 126.5312, '제주')">제주</button>
-        <div class="section-title">주변국 수도</div>
-        <button class="city-btn" onclick="updateDashboard(35.6895, 139.6917, '도쿄 🇯🇵')">도쿄</button>
-        <button class="city-btn" onclick="updateDashboard(39.9042, 116.4074, '베이징 🇨🇳')">베이징</button>
-        <button class="city-btn" onclick="updateDashboard(21.0285, 105.8542, '하노이 🇻🇳')">하노이</button>
-        <button class="city-btn" onclick="updateDashboard(13.7563, 100.5018, '방콕 🇹🇭')">방콕</button>
     </div>
 
     <div class="temp-display">
@@ -58,33 +42,62 @@
     <div class="chart-container"><canvas id="weatherChart"></canvas></div>
 
     <div class="music-box">
-        <small style="color:#007bff; font-weight:bold;">🎵 AI 기분 분석 음악 추천 (Qwen 2.5)</small>
-        <p id="music-text">AI 기능을 활성화하려면 페이지 새로고침 후 토큰을 입력하세요.</p>
+        <small style="color:#007bff; font-weight:bold;">🎵 Last.fm 실시간 추천 음악</small>
+        <ul id="music-list">데이터를 불러오는 중...</ul>
     </div>
 </div>
 
 <script>
-    const HF_TOKEN = prompt("Hugging Face API 토큰을 입력해주세요.\n(공백 주의, 깃허브에 노출되지 않은 새 키여야 합니다)");
-    const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; // 본인의 날씨 API 키
+    // API 키 설정
+    const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; // OpenWeather API 키 입력
+    const L_KEY = '1518e370a2ef192ac4c5849062ba83b3';  // Last.fm API 키 입력
 
     let myChart;
-    const weatherFix = { "온흐림": "흐림", "튼구름": "구름 조금", "조금 흐림": "구름 많음" };
 
-    async function init() {
-        updateDashboard(37.5665, 126.9780, '서울특별시');
-    }
+    // 1. 날씨 용어 보정 사전 (기존 기능 유지)
+    const weatherFix = { 
+        "실 비": "가랑비", "실비": "가랑비", "온흐림": "흐림", 
+        "튼구름": "구름 조금", "조금 흐림": "구름 많음", "박무": "옅은 안개"
+    };
+
+    // 2. 날씨별 Last.fm 검색 태그 매칭
+    const tagMap = {
+        "가랑비": "rainy", "비": "rain", "맑음": "sunny", 
+        "흐림": "chill", "구름 조금": "happy", "눈": "winter", "안개": "ambient"
+    };
 
     async function updateDashboard(lat, lon, name) {
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
             const data = await res.json();
-            let desc = weatherFix[data.weather[0].description] || data.weather[0].description;
+            
+            let rawDesc = data.weather[0].description;
+            let desc = weatherFix[rawDesc] || rawDesc;
+
             document.getElementById('city-name').innerText = name;
             document.getElementById('temp-val').innerText = Math.round(data.main.temp);
             document.getElementById('desc-val').innerText = desc;
+            
             drawChart(data.main.temp);
-            getMusic(data.main.temp, desc);
+            getMusicFromLastFM(desc); // 음악 API 호출
         } catch (e) { console.error(e); }
+    }
+
+    // 3. Last.fm API를 사용한 음악 추천 (신규 추가 기능)
+    async function getMusicFromLastFM(desc) {
+        const musicList = document.getElementById('music-list');
+        const tag = tagMap[desc] || "kpop";
+        const url = `https://ws.audioscrobbler.com/2.0/?method=tag.gettoptracks&tag=${tag}&api_key=${L_KEY}&format=json&limit=5`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            const tracks = data.tracks.track;
+            
+            musicList.innerHTML = tracks.map(t => `<li><strong>${t.artist.name}</strong> - ${t.name}</li>`).join('');
+        } catch (error) {
+            musicList.innerHTML = "<li>음악 데이터를 가져오지 못했습니다. (API 키 확인 필요)</li>";
+        }
     }
 
     function drawChart(currentTemp) {
@@ -103,57 +116,8 @@
         });
     }
 
-    async function getMusic(temp, desc) {
-        const mBox = document.getElementById('music-text');
-        const token = HF_TOKEN ? HF_TOKEN.trim() : "";
-        
-        if (!token) {
-            mBox.innerText = "추천곡: NewJeans - Ditto (토큰 미입력)";
-            return;
-        }
-
-        mBox.innerText = "AI 분석 중... (약 20초 소요)";
-
-        try {
-            // 🛑 Failed to fetch 해결을 위해 요청 주소 최적화
-            const API_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct";
-            
-            const response = await fetch(API_URL, {
-                headers: { 
-                    "Authorization": `Bearer ${token}`, 
-                    "Content-Type": "application/json"
-                },
-                method: "POST",
-                body: JSON.stringify({
-                    inputs: `<|im_start|>user\n날씨가 ${desc}이고 기온이 ${temp}도야. 어울리는 K-pop 1곡을 '가수 - 제목 (이유)' 형식으로 한국어로 짧게 추천해줘.<|im_end|>\n<|im_start|>assistant\n`,
-                    parameters: { max_new_tokens: 100, return_full_text: false }
-                })
-            });
-
-            // 응답이 성공적이지 않을 때 에러 메시지 상세화
-            if (!response.ok) {
-                const errorData = await response.json();
-                if (errorData.error && errorData.error.includes("loading")) {
-                    mBox.innerHTML = `<span style="color:blue;">⚠️ 모델 로딩 중입니다. (30초 뒤 다시 시도)</span>`;
-                } else {
-                    mBox.innerHTML = `<span style="color:red;">❌ API 오류: ${response.status} - ${errorData.error || '접근 권한 없음'}</span>`;
-                }
-                return;
-            }
-
-            const result = await response.json();
-            if (Array.isArray(result) && result[0].generated_text) {
-                mBox.innerText = result[0].generated_text.trim();
-            } else {
-                mBox.innerText = "AI가 다른 생각을 하고 있나 봐요. 다시 눌러주세요!";
-            }
-        } catch (e) {
-            // 🛑 Failed to fetch가 발생하면 이 섹션이 실행됩니다.
-            mBox.innerHTML = `<span style="color:red;">❌ 연결 실패: ${e.message}</span><br><small>학교 와이파이 대신 핫스팟을 사용해 보세요.</small>`;
-        }
-    }
-
-    init();
+    // 초기 실행
+    updateDashboard(37.5665, 126.9780, '서울특별시');
 </script>
 </body>
 </html>
