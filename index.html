@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-Weather & AI Music</title>
+    <title>K-Weather AI Dashboard Final</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f0f4f8; display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -15,7 +15,7 @@
         .temp { font-size: 3.5rem; font-weight: 800; color: #007bff; margin: 5px 0; }
         #desc-val { font-size: 1.2rem; color: #555; margin-bottom: 10px; }
         .chart-container { height: 220px; margin: 20px 0; padding: 10px; background: #fff; border-radius: 15px; }
-        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; min-height: 60px; }
+        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; }
         #music-text { font-size: 0.95rem; line-height: 1.6; color: #333; margin: 0; font-weight: 500; }
         .section-title { font-size: 0.8rem; color: #007bff; font-weight: bold; width: 100%; margin: 10px 0 5px; text-align: left; padding-left: 10px; }
     </style>
@@ -42,7 +42,6 @@
         <button class="city-btn" onclick="updateDashboard(35.8242, 127.1480, '전라북도')">전라북도</button>
         <button class="city-btn" onclick="updateDashboard(35.1595, 126.8526, '광주')">광주</button>
         <button class="city-btn" onclick="updateDashboard(33.4996, 126.5312, '제주')">제주</button>
-
         <div class="section-title">주변국 수도</div>
         <button class="city-btn" onclick="updateDashboard(35.6895, 139.6917, '도쿄 🇯🇵')">도쿄</button>
         <button class="city-btn" onclick="updateDashboard(39.9042, 116.4074, '베이징 🇨🇳')">베이징</button>
@@ -51,7 +50,7 @@
     </div>
 
     <div class="temp-display">
-        <h2 id="city-name" style="margin:0; color:#333;">날씨 확인 중...</h2>
+        <h2 id="city-name" style="margin:0; color:#333;">날씨를 확인하는 중...</h2>
         <div class="temp"><span id="temp-val">--</span>°C</div>
         <div id="desc-val">-</div>
     </div>
@@ -59,14 +58,14 @@
     <div class="chart-container"><canvas id="weatherChart"></canvas></div>
 
     <div class="music-box">
-        <small style="color:#007bff; font-weight:bold;">🎵 오늘의 날씨 추천 곡</small>
-        <p id="music-text">잠시만 기다려주세요...</p>
+        <small style="color:#007bff; font-weight:bold;">🎵 AI 기분 분석 음악 추천</small>
+        <p id="music-text">AI가 연결 경로를 최적화하고 있습니다...</p>
     </div>
 </div>
 
 <script>
     const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; 
-    const G_KEY = 'AIzaSyAWg_egI4h-qvKDMOj3NwTmy7pzZOiHRqw'; // 새로 만드신 API 키를 넣어주세요
+    const G_KEY = 'AIzaSyAWg_egI4h-qvKDMOj3NwTmy7pzZOiHRqw'; 
 
     let myChart;
     const weatherFix = { "온흐림": "흐림", "튼구름": "구름 조금", "조금 흐림": "구름 많음" };
@@ -77,9 +76,7 @@
                 (pos) => updateDashboard(pos.coords.latitude, pos.coords.longitude, "내 위치"),
                 () => updateDashboard(37.5665, 126.9780, "서울특별시")
             );
-        } else {
-            updateDashboard(37.5665, 126.9780, "서울특별시");
-        }
+        } else { updateDashboard(37.5665, 126.9780, "서울특별시"); }
     }
 
     async function updateDashboard(lat, lon, name) {
@@ -87,11 +84,9 @@
             const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
             const data = await res.json();
             let desc = weatherFix[data.weather[0].description] || data.weather[0].description;
-
             document.getElementById('city-name').innerText = name;
             document.getElementById('temp-val').innerText = Math.round(data.main.temp);
             document.getElementById('desc-val').innerText = desc;
-
             drawChart(data.main.temp);
             getMusic(data.main.temp, desc);
         } catch (e) { console.error(e); }
@@ -113,41 +108,37 @@
         });
     }
 
-    // 🎵 404 오류 완벽 해결을 위한 음악 추천 함수
     async function getMusic(temp, desc) {
         const mBox = document.getElementById('music-text');
-        mBox.innerText = "음악을 고르고 있습니다...";
+        const promptText = `날씨 ${desc}, 온도 ${temp}도. 어울리는 노래 1곡만 추천해줘.`;
+        
+        // 404 오류 방지를 위해 모든 가능성 있는 경로를 배열로 만듭니다.
+        const endpoints = [
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_KEY}`,
+            `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${G_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${G_KEY}`
+        ];
 
-        try {
-            // v1 규격과 gemini-1.5-flash 모델명을 사용하여 404 에러를 방지합니다
-            const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${G_KEY}`;
+        for (let url of endpoints) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                });
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ 
-                        parts: [{ text: `현재 날씨는 ${desc}이고 기온은 ${temp}도야. 어울리는 노래 1곡(가수 - 제목)만 추천해줘.` }] 
-                    }]
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.status !== 200) {
-                // 오류 발생 시 상세 메시지를 출력하여 진단을 돕습니다
-                mBox.innerText = `추천곡을 가져오지 못했습니다. (코드: ${response.status})`;
-                return;
-            }
-
-            if (data.candidates && data.candidates[0].content) {
-                mBox.innerText = data.candidates[0].content.parts[0].text;
-            } else {
-                mBox.innerText = "편안한 연주곡 한 곡 어떠신가요?";
-            }
-        } catch (e) {
-            mBox.innerText = "연결 상태를 확인해주세요.";
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.candidates && data.candidates[0].content) {
+                        mBox.innerText = data.candidates[0].content.parts[0].text;
+                        return; // 성공 시 여기서 멈춤
+                    }
+                }
+                console.log(`경로 실패(${response.status}): ${url}`);
+            } catch (e) { console.error("연결 에러:", e); }
         }
+        
+        mBox.innerText = "서버 경로 탐색에 실패했습니다. API 키의 활성화 상태를 확인해 주세요.";
     }
 
     init();
