@@ -8,15 +8,21 @@
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f0f4f8; display: flex; justify-content: center; padding: 20px; margin: 0; }
         .card { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 650px; text-align: center; }
+        
+        /* 인사말 스타일 (추가 기능) */
+        .welcome-msg { font-size: 0.9rem; color: #888; margin-bottom: 10px; font-weight: 500; }
+        
         .city-section { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
         .section-title { font-size: 0.85rem; color: #666; font-weight: bold; margin-bottom: 10px; text-align: left; padding-left: 5px; border-left: 3px solid #007bff; margin-left: 5px; }
         .city-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 15px; }
         .city-btn { padding: 6px 12px; border: 1px solid #e1e1e1; border-radius: 10px; background: white; cursor: pointer; font-size: 0.8rem; transition: 0.2s; color: #333; }
         .city-btn:hover { background: #007bff; color: white; border-color: #007bff; }
+        
         .temp-display { margin: 15px 0; }
         .temp { font-size: 3.5rem; font-weight: 800; color: #007bff; margin: 5px 0; }
         #desc-val { font-size: 1.2rem; color: #555; margin-bottom: 10px; }
         .chart-container { height: 200px; margin: 20px 0; padding: 10px; background: #fff; border-radius: 15px; }
+        
         .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; }
         .music-title { color: #007bff; font-weight: bold; font-size: 0.85rem; display: block; margin-bottom: 10px; }
         #music-list { font-size: 0.9rem; line-height: 1.7; color: #333; margin: 0; padding-left: 20px; list-style-type: disc; }
@@ -25,6 +31,9 @@
 <body>
 
 <div class="card">
+    <!-- 추가 기능: 시간별 인사말 -->
+    <div id="welcome-area" class="welcome-msg">안녕하세요! 오늘 하루도 화이팅입니다.</div>
+
     <div class="city-section">
         <div class="section-title">대한민국 주요 도시</div>
         <div class="city-buttons">
@@ -62,8 +71,8 @@
     <div class="chart-container"><canvas id="weatherChart"></canvas></div>
 
     <div class="music-box">
-        <span class="music-title">🎧 실시간 무작위 선곡 (50곡 중 3곡)</span>
-        <ul id="music-list">추천곡을 선별하고 있습니다...</ul>
+        <span class="music-title">🎧 한국인 맞춤 무작위 선곡 (K-장르 포함)</span>
+        <ul id="music-list">음악을 선곡하는 중...</ul>
     </div>
 </div>
 
@@ -73,17 +82,30 @@
 
     let myChart;
 
+    // 날씨 보정 및 인사말 로직
     const weatherFix = { 
         "실 비": "가랑비", "실비": "가랑비", "온흐림": "흐림", 
         "튼구름": "구름 조금", "조금 흐림": "구름 많음", "박무": "옅은 안개"
     };
 
+    // 날씨별 한국 장르 세밀 매칭
     const tagMap = {
-        "가랑비": "rainy", "비": "rain", "맑음": "sunny", 
-        "흐림": "chill", "구름 조금": "happy", "눈": "winter", "안개": "ambient"
+        "가랑비": "k-ballad", "비": "korean-ballad", "맑음": "k-pop", 
+        "흐림": "k-indie", "구름 조금": "k-hiphop", "눈": "korean-ost", "안개": "ambient"
     };
 
+    function updateWelcomeMsg() {
+        const hour = new Date().getHours();
+        let msg = "반가워요! ";
+        if (hour < 6) msg += "포근한 새벽이네요. ✨";
+        else if (hour < 12) msg += "기분 좋은 아침입니다. ☀️";
+        else if (hour < 18) msg += "활기찬 오후 보내고 계신가요? ☕";
+        else msg += "편안한 밤 되시길 바라요. 🌙";
+        document.getElementById('welcome-area').innerText = msg;
+    }
+
     async function updateDashboard(lat, lon, name) {
+        updateWelcomeMsg();
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
             const data = await res.json();
@@ -104,7 +126,7 @@
         const musicListElement = document.getElementById('music-list');
         const tag = tagMap[desc] || "kpop";
         
-        // 🛑 핵심 수정: 검색량을 50곡으로 대폭 늘림 (limit=50)
+        // 검색 범위를 50곡으로 유지하여 다양성 확보
         const url = `https://ws.audioscrobbler.com/2.0/?method=tag.gettoptracks&tag=${tag}&api_key=${L_KEY}&format=json&limit=50`;
 
         try {
@@ -112,21 +134,19 @@
             const data = await response.json();
             let tracks = data.tracks.track;
             
-            // 🛑 피셔-예이츠 셔플(Fisher-Yates Shuffle) 알고리즘 적용 (더 완벽한 무작위성)
+            // 피셔-예이츠 셔플로 완벽 무작위 섞기
             for (let i = tracks.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
             }
             
-            // 섞인 50곡 중 상위 3곡 선택
             const selectedTracks = tracks.slice(0, 3);
-            
             musicListElement.innerHTML = selectedTracks.map(t => 
                 `<li><strong>${t.artist.name}</strong> - ${t.name}</li>`
             ).join('');
 
         } catch (error) {
-            musicListElement.innerHTML = "<li>음악 라이브러리 연결에 실패했습니다.</li>";
+            musicListElement.innerHTML = "<li>음악 라이브러리 연결 실패</li>";
         }
     }
 
