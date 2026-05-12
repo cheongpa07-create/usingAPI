@@ -40,7 +40,7 @@
         <button class="city-btn" onclick="updateDashboard(35.1796, 129.0756, '부산')">부산</button>
         <button class="city-btn" onclick="updateDashboard(34.8118, 126.3922, '전라남도')">전라남도</button>
         <button class="city-btn" onclick="updateDashboard(35.8242, 127.1480, '전라북도')">전라북도</button>
-        <button class="city-btn" onclick="updateDashboard(35.1595, 126.8526, '광주')">광주</button>
+        <button class="city-btn" onclick="updateDashboard(35.1595, 126.8526, '광주') )">광주</button>
         <button class="city-btn" onclick="updateDashboard(33.4996, 126.5312, '제주')">제주</button>
 
         <div class="section-title">주변국 수도</div>
@@ -104,7 +104,6 @@
         }
     }
 
-    // 📈 그래프 날짜 표기 로직 (Screenshot_20260512_134934_Chrome.jpg 반영)
     function drawChart(currentTemp) {
         const ctx = document.getElementById('weatherChart').getContext('2d');
         const labels = [];
@@ -146,47 +145,38 @@
         });
     }
 
-    // 🎵 음악 추천 로직 (403/404 에러 방지 최종 버전)
     async function getMusic(temp, desc) {
         const mBox = document.getElementById('music-text');
-        mBox.innerText = "Gemini AI가 음악을 고르고 있습니다...";
+        mBox.innerText = "Gemini AI가 음악을 분석 중...";
 
         try {
-            // 최신 v1 API 주소 사용
-            const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${G_KEY}`;
+            // 404 에러 방지를 위해 주소를 v1beta 버전으로 교체합니다.
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_KEY}`;
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ 
-                        parts: [{ text: `현재 날씨 ${desc}, 기온 ${temp}도야. 어울리는 노래 1곡(가수 - 제목)만 한국어로 짧게 추천해줘.` }] 
+                        parts: [{ text: `현재 날씨 ${desc}, 기온 ${temp}도야. 어울리는 노래 1곡(가수 - 제목)만 짧게 추천해줘.` }] 
                     }]
                 })
             });
 
             const data = await response.json();
 
-            // 에러 코드별 상세 메시지 처리
             if (response.status !== 200) {
-                if (response.status === 403) {
-                    mBox.innerText = "오류(403): API 키 권한이 없습니다. 새 키를 발급받아보세요.";
-                } else if (response.status === 404) {
-                    mBox.innerText = "오류(404): 호출 주소가 잘못되었습니다. 코드를 확인해주세요.";
-                } else {
-                    mBox.innerText = `API 오류: ${response.status} (${data.error?.message || '점검 필요'})`;
-                }
+                mBox.innerText = `API 오류(${response.status}): ${data.error?.message || '주소를 확인해주세요.'}`;
                 return;
             }
 
-            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+            if (data.candidates && data.candidates[0].content) {
                 mBox.innerText = data.candidates[0].content.parts[0].text;
             } else {
-                mBox.innerText = "산뜻한 팝송 한 곡 어떠신가요? (추천 로직 확인 중)";
+                mBox.innerText = "차분한 재즈 한 곡 어떠신가요? (추천 결과 없음)";
             }
         } catch (e) {
-            mBox.innerText = "네트워크 연결 상태를 확인해주세요.";
-            console.error("Fetch Error:", e);
+            mBox.innerText = "네트워크 에러가 발생했습니다.";
         }
     }
 
