@@ -50,7 +50,7 @@
     </div>
 
     <div class="temp-display">
-        <h2 id="city-name" style="margin:0; color:#333;">날씨 확인 중...</h2>
+        <h2 id="city-name" style="margin:0; color:#333;">날씨 데이터 로드 중...</h2>
         <div class="temp"><span id="temp-val">--</span>°C</div>
         <div id="desc-val">-</div>
     </div>
@@ -64,8 +64,7 @@
 </div>
 
 <script>
-    // 갤탭 사용자를 위한 입력창
-    const HF_TOKEN = prompt("Hugging Face API 토큰을 입력해주세요.\n(공백이 포함되지 않게 주의하세요!)");
+    const HF_TOKEN = prompt("Hugging Face API 토큰을 입력해주세요.\n(공백 주의, 깃허브에 노출되지 않은 새 키여야 합니다)");
     const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; // 본인의 날씨 API 키
 
     let myChart;
@@ -106,49 +105,51 @@
 
     async function getMusic(temp, desc) {
         const mBox = document.getElementById('music-text');
+        const token = HF_TOKEN ? HF_TOKEN.trim() : "";
         
-        if (!HF_TOKEN || HF_TOKEN.trim() === "") {
-            mBox.innerText = "추천곡: NewJeans - Ditto (토큰이 입력되지 않아 기본 곡을 추천합니다)";
+        if (!token) {
+            mBox.innerText = "추천곡: NewJeans - Ditto (토큰 미입력)";
             return;
         }
 
-        mBox.innerText = "AI 엔진 분석 중... (갤탭은 여기서 20초 정도 기다려주세요)";
+        mBox.innerText = "AI 분석 중... (약 20초 소요)";
 
         try {
-            const response = await fetch(
-                "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct",
-                {
-                    headers: { 
-                        "Authorization": `Bearer ${HF_TOKEN.trim()}`, 
-                        "Content-Type": "application/json" 
-                    },
-                    method: "POST",
-                    body: JSON.stringify({
-                        inputs: `<|im_start|>user\n날씨가 ${desc}이고 기온이 ${temp}도야. 어울리는 K-pop 1곡을 '가수 - 제목 (이유)' 형식으로 한국어로 짧게 추천해줘.<|im_end|>\n<|im_start|>assistant\n`,
-                        parameters: { max_new_tokens: 100, return_full_text: false }
-                    }),
-                }
-            );
+            // 🛑 Failed to fetch 해결을 위해 요청 주소 최적화
+            const API_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct";
+            
+            const response = await fetch(API_URL, {
+                headers: { 
+                    "Authorization": `Bearer ${token}`, 
+                    "Content-Type": "application/json"
+                },
+                method: "POST",
+                body: JSON.stringify({
+                    inputs: `<|im_start|>user\n날씨가 ${desc}이고 기온이 ${temp}도야. 어울리는 K-pop 1곡을 '가수 - 제목 (이유)' 형식으로 한국어로 짧게 추천해줘.<|im_end|>\n<|im_start|>assistant\n`,
+                    parameters: { max_new_tokens: 100, return_full_text: false }
+                })
+            });
 
-            const result = await response.json();
-
-            // 🛑 갤탭에서도 원인을 볼 수 있게 에러를 직접 화면에 띄웁니다.
-            if (result.error) {
-                if (result.error.includes("loading")) {
-                    mBox.innerHTML = `<span style="color:blue; font-weight:bold;">⚠️ AI 모델이 깨어나는 중입니다. (30초 뒤 다시 클릭하세요!)</span>`;
+            // 응답이 성공적이지 않을 때 에러 메시지 상세화
+            if (!response.ok) {
+                const errorData = await response.json();
+                if (errorData.error && errorData.error.includes("loading")) {
+                    mBox.innerHTML = `<span style="color:blue;">⚠️ 모델 로딩 중입니다. (30초 뒤 다시 시도)</span>`;
                 } else {
-                    mBox.innerHTML = `<span style="color:red; font-weight:bold;">❌ API 에러: ${result.error}</span><br><small>키가 깃허브에서 무효화되었는지 확인하세요.</small>`;
+                    mBox.innerHTML = `<span style="color:red;">❌ API 오류: ${response.status} - ${errorData.error || '접근 권한 없음'}</span>`;
                 }
                 return;
             }
 
+            const result = await response.json();
             if (Array.isArray(result) && result[0].generated_text) {
                 mBox.innerText = result[0].generated_text.trim();
             } else {
-                throw new Error("데이터 응답 형식이 다릅니다.");
+                mBox.innerText = "AI가 다른 생각을 하고 있나 봐요. 다시 눌러주세요!";
             }
         } catch (e) {
-            mBox.innerHTML = `<span style="color:red;">❌ 연결 실패: ${e.message}</span>`;
+            // 🛑 Failed to fetch가 발생하면 이 섹션이 실행됩니다.
+            mBox.innerHTML = `<span style="color:red;">❌ 연결 실패: ${e.message}</span><br><small>학교 와이파이 대신 핫스팟을 사용해 보세요.</small>`;
         }
     }
 
