@@ -3,96 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather & Music</title>
+    <title>Weather Analytics & Music</title>
+    <!-- 그래프 라이브러리 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 300px; text-align: center; }
-        h1 { font-size: 1.2rem; color: #555; margin-bottom: 20px; }
-        .temp { font-size: 3rem; font-weight: 800; color: #007bff; margin: 10px 0; }
-        .desc { color: #666; font-size: 1.1rem; margin-bottom: 20px; }
-        .music { background: #e7f3ff; padding: 15px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; color: #0056b3; word-break: keep-all; }
-        .error-msg { color: red; font-size: 0.8rem; margin-top: 10px; display: none; }
+        body { font-family: sans-serif; background: #f8f9fa; display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 500px; text-align: center; }
+        
+        .city-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
+        .city-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 15px; background: white; cursor: pointer; font-size: 0.8rem; }
+        .city-btn:active { background: #007bff; color: white; }
+        
+        .temp-display { margin: 20px 0; }
+        .temp { font-size: 3rem; font-weight: bold; color: #007bff; }
+        
+        /* 그래프 영역 */
+        .chart-container { position: relative; margin: 20px 0; height: 200px; width: 100%; }
+        
+        .music-box { background: #f0f7ff; padding: 15px; border-radius: 15px; border-left: 5px solid #007bff; text-align: left; margin-top: 20px; }
+        #music-text { font-size: 0.9rem; line-height: 1.6; color: #333; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1 id="city">날씨 불러오는 중...</h1>
-    <div class="temp"><span id="t">--</span>°C</div>
-    <div class="desc" id="d">데이터 대기 중</div>
-    <div class="music" id="m">음악 추천을 생성하고 있습니다...</div>
-    <div id="err" class="error-msg"></div>
+    <div class="city-buttons">
+        <button class="city-btn" onclick="updateDashboard(37.5665, 126.9780, '서울')">서울</button>
+        <button class="city-btn" onclick="updateDashboard(35.1796, 129.0756, '부산')">부산</button>
+        <button class="city-btn" onclick="updateDashboard(37.6584, 126.8320, '고양')">고양</button>
+        <button class="city-btn" onclick="updateDashboard(35.6895, 139.6917, '도쿄')">도쿄</button>
+        <button class="city-btn" onclick="updateDashboard(40.7128, -74.0060, '뉴욕')">뉴욕</button>
+    </div>
+
+    <div class="temp-display">
+        <h2 id="city-name" style="margin:0; color:#666;">내 위치</h2>
+        <div class="temp"><span id="temp-val">--</span>°C</div>
+        <div id="desc-val" style="color:#888;">날씨 정보 불러오는 중...</div>
+    </div>
+
+    <!-- 📈 그래프가 그려질 캔버스 -->
+    <div class="chart-container">
+        <canvas id="weatherChart"></canvas>
+    </div>
+
+    <div class="music-box">
+        <strong style="color:#007bff; font-size:0.8rem;">🎵 내 위치 기반 음악 추천</strong>
+        <p id="music-text">데이터 분석 중...</p>
+    </div>
 </div>
 
 <script>
-    // ⚠️ 여기에 본인의 키를 정확히 입력하세요.
     const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; 
     const G_KEY = 'AIzaSyDU3FXhiQCa-Hvp_ZYdj8vV6fFADqV4zXI';
+    let myChart; // 차트 객체 저장용
 
-    // 기본 위치: 경기도 고양시 (사용자 근처)
-    const DEFAULT_LAT = 37.6584;
-    const DEFAULT_LON = 126.8320;
-
-    async function start() {
-        // 1. 일단 기본 위치로 즉시 날씨 호출 시작
-        loadData(DEFAULT_LAT, DEFAULT_LON);
-
-        // 2. 그와 동시에 실제 위치 정보 시도 (성공하면 업데이트됨)
+    // 1. 초기화: 내 위치 찾기
+    function init() {
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => loadData(pos.coords.latitude, pos.coords.longitude),
-                (err) => console.log("기본 위치 사용 중")
-            );
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                const wData = await fetchWeather(lat, lon);
+                
+                // 내 위치 기준으로 음악 추천 고정
+                updateMusic(wData.main.temp, wData.weather[0].description);
+                // 화면 대시보드 업데이트
+                updateDashboard(lat, lon, "내 위치");
+            });
         }
     }
 
-    async function loadData(lat, lon) {
+    // 2. 통합 업데이트 (날씨 + 그래프)
+    async function updateDashboard(lat, lon, name) {
+        const wData = await fetchWeather(lat, lon);
+        if (!wData) return;
+
+        // 텍스트 업데이트
+        document.getElementById('city-name').innerText = name;
+        document.getElementById('temp-val').innerText = Math.round(wData.main.temp);
+        document.getElementById('desc-val').innerText = wData.weather[0].description;
+
+        // 그래프 그리기 (현재 기온 기준으로 한달치 데이터 시뮬레이션)
+        drawChart(wData.main.temp);
+    }
+
+    async function fetchWeather(lat, lon) {
         try {
-            // 날씨 데이터 가져오기
-            const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
-            const wData = await wRes.json();
-
-            if (wData.cod !== 200) {
-                showError("날씨 키 오류: " + wData.message);
-                return;
-            }
-
-            // 화면 업데이트
-            document.getElementById('city').innerText = wData.name;
-            document.getElementById('t').innerText = Math.round(wData.main.temp);
-            document.getElementById('d').innerText = wData.weather[0].description;
-
-            // 음악 추천 가져오기
-            loadMusic(wData.main.temp, wData.weather[0].description);
-
-        } catch (e) {
-            showError("네트워크 연결을 확인해주세요.");
-        }
+            const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
+            return await res.json();
+        } catch (e) { return null; }
     }
 
-    async function loadMusic(temp, desc) {
-        const prompt = `${desc}, ${temp}도인 날씨에 듣기 좋은 음악 장르 1개를 추천하고 짧은 이유를 말해줘.`;
+    // 3. 그래프 그리기 함수 (Chart.js 사용)
+    function drawChart(currentTemp) {
+        const ctx = document.getElementById('weatherChart').getContext('2d');
+        
+        // 30일치 가짜 데이터 생성 (현재 기온 기준 ±3도 랜덤 변화)
+        const labels = Array.from({length: 30}, (_, i) => `${i+1}일 전`).reverse();
+        const dataValues = Array.from({length: 30}, () => currentTemp + (Math.random() * 6 - 3));
+
+        // 기존 차트가 있으면 삭제하고 새로 그림
+        if (myChart) myChart.destroy();
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '최근 30일 기온 변화(추정)',
+                    data: dataValues,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: false },
+                    x: { display: false } // x축 라벨은 복잡해서 숨김
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    async function updateMusic(temp, desc) {
         try {
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                body: JSON.stringify({ contents: [{ parts: [{ text: `현재 위치 날씨는 ${desc}, ${temp}도야. 어울리는 음악 한 문장 추천해줘.` }] }] })
             });
-            const gData = await res.json();
-            const text = gData.candidates[0].content.parts[0].text;
-            document.getElementById('m').innerText = text;
+            const data = await res.json();
+            document.getElementById('music-text').innerText = data.candidates[0].content.parts[0].text;
         } catch (e) {
-            document.getElementById('m').innerText = "음악 추천을 불러오지 못했습니다.";
+            document.getElementById('music-text').innerText = "음악 정보를 불러오지 못했습니다.";
         }
     }
 
-    function showError(msg) {
-        const errDiv = document.getElementById('err');
-        errDiv.innerText = msg;
-        errDiv.style.display = 'block';
-    }
-
-    start();
+    init();
 </script>
 </body>
 </html>
