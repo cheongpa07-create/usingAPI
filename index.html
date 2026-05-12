@@ -1,94 +1,98 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>날씨 & 음악 추천</title>
-<style>
-/* 디자인은 이전과 동일하게 유지하거나 조금 더 깔끔하게 다듬었습니다 */
-body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #e0f2fe; }
-.container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 320px; text-align: center; }
-.temp { font-size: 2.5rem; font-weight: bold; color: #0284c7; }
-.music-box { background: #f8fafc; padding: 15px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #0284c7; font-size: 0.9rem; }
-button { margin-top: 15px; padding: 8px 15px; cursor: pointer; border: none; border-radius: 5px; background: #0284c7; color: white; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather & Music</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        h1 { font-size: 1.2rem; color: #555; margin-bottom: 20px; }
+        .temp { font-size: 3rem; font-weight: 800; color: #007bff; margin: 10px 0; }
+        .desc { color: #666; font-size: 1.1rem; margin-bottom: 20px; }
+        .music { background: #e7f3ff; padding: 15px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; color: #0056b3; word-break: keep-all; }
+        .error-msg { color: red; font-size: 0.8rem; margin-top: 10px; display: none; }
+    </style>
 </head>
 <body>
 
-<div class="container">
-<h3 id="city">날씨를 확인하는 중...</h3>
-<div class="temp"><span id="current-temp">--</span>°C</div>
-<p id="description">-</p>
-
-<div class="music-box">
-<strong>🎵 오늘의 추천 음악</strong>
-<p id="music-recommendation">날씨 정보를 가져오면 추천을 시작합니다.</p>
-</div>
-<button onclick="location.reload()">새로고침</button>
+<div class="card">
+    <h1 id="city">날씨 불러오는 중...</h1>
+    <div class="temp"><span id="t">--</span>°C</div>
+    <div class="desc" id="d">데이터 대기 중</div>
+    <div class="music" id="m">음악 추천을 생성하고 있습니다...</div>
+    <div id="err" class="error-msg"></div>
 </div>
 
 <script>
-// ⚠️ 본인의 키로 꼭 바꿔주세요!
-const WEATHER_API_KEY = '1548c4c0650dbd309f6593be238a26ea';
-const GEMINI_API_KEY = 'AIzaSyDU3FXhiQCa-Hvp_ZYdj8vV6fFADqV4zXI';
+    // ⚠️ 여기에 본인의 키를 정확히 입력하세요.
+    const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; 
+    const G_KEY = 'AIzaSyDU3FXhiQCa-Hvp_ZYdj8vV6fFADqV4zXI';
 
-async function init() {
-const loadingTimeout = setTimeout(() => {
-console.log("위치 응답이 너무 느려 기본값(서울)으로 실행합니다.");
-getWeatherByCoords(37.5665, 126.9780); // 서울 위도, 경도
-}, 3000); // 3초 동안 응답 없으면 강제 실행
+    // 기본 위치: 경기도 고양시 (사용자 근처)
+    const DEFAULT_LAT = 37.6584;
+    const DEFAULT_LON = 126.8320;
 
-if (navigator.geolocation) {
-navigator.geolocation.getCurrentPosition(
-(pos) => {
-clearTimeout(loadingTimeout);
-getWeatherByCoords(pos.coords.latitude, pos.coords.longitude);
-},
-() => {
-clearTimeout(loadingTimeout);
-console.log("위치 권한 거부됨. 기본값 사용.");
-getWeatherByCoords(37.5665, 126.9780);
-}
-);
-}
-}
+    async function start() {
+        // 1. 일단 기본 위치로 즉시 날씨 호출 시작
+        loadData(DEFAULT_LAT, DEFAULT_LON);
 
-async function getWeatherByCoords(lat, lon) {
-try {
-const res = await fetch(https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=metric&lang=kr`);
-const data = await res.json();
+        // 2. 그와 동시에 실제 위치 정보 시도 (성공하면 업데이트됨)
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => loadData(pos.coords.latitude, pos.coords.longitude),
+                (err) => console.log("기본 위치 사용 중")
+            );
+        }
+    }
 
-if (data.cod !== 200) throw new Error(data.message);
+    async function loadData(lat, lon) {
+        try {
+            // 날씨 데이터 가져오기
+            const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
+            const wData = await wRes.json();
 
-document.getElementById('city').innerText = data.name;
-document.getElementById('current-temp').innerText = Math.round(data.main.temp);
-document.getElementById('description').innerText = data.weather[0].description;
+            if (wData.cod !== 200) {
+                showError("날씨 키 오류: " + wData.message);
+                return;
+            }
 
-getGeminiMusic(data.main.temp, data.weather[0].description);
-} catch (err) {
-document.getElementById('city').innerText = "오류 발생";
-document.getElementById('music-recommendation').innerText = "API 키를 확인하거나 잠시 후 시도해주세요: " + err.message;
-}
-}
+            // 화면 업데이트
+            document.getElementById('city').innerText = wData.name;
+            document.getElementById('t').innerText = Math.round(wData.main.temp);
+            document.getElementById('d').innerText = wData.weather[0].description;
 
-async function getGeminiMusic(temp, desc) {
-const prompt = ``${desc}, 기온은 latex
-{temp}도인 날씨에 어울리는 음악 장르 하나를 이유와 함께 아주 짧게 한 문장으로 추천해줘.`; try { const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=
+            // 음악 추천 가져오기
+            loadMusic(wData.main.temp, wData.weather[0].description);
 
-{GEMINI_API_KEY}`, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-});
-const data = await res.json();
-const text = data.candidates[0].content.parts[0].text;
-document.getElementById('music-recommendation').innerText = text;
-} catch (err) {
-document.getElementById('music-recommendation').innerText = "음악 추천을 가져오지 못했습니다.";
-}
-}
+        } catch (e) {
+            showError("네트워크 연결을 확인해주세요.");
+        }
+    }
 
-init();
+    async function loadMusic(temp, desc) {
+        const prompt = `${desc}, ${temp}도인 날씨에 듣기 좋은 음악 장르 1개를 추천하고 짧은 이유를 말해줘.`;
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const gData = await res.json();
+            const text = gData.candidates[0].content.parts[0].text;
+            document.getElementById('m').innerText = text;
+        } catch (e) {
+            document.getElementById('m').innerText = "음악 추천을 불러오지 못했습니다.";
+        }
+    }
+
+    function showError(msg) {
+        const errDiv = document.getElementById('err');
+        errDiv.innerText = msg;
+        errDiv.style.display = 'block';
+    }
+
+    start();
 </script>
 </body>
 </html>
