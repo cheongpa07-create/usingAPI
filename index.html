@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-Weather AI Dashboard Final</title>
+    <title>K-Weather & AI Music Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f0f4f8; display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -15,7 +15,7 @@
         .temp { font-size: 3.5rem; font-weight: 800; color: #007bff; margin: 5px 0; }
         #desc-val { font-size: 1.2rem; color: #555; margin-bottom: 10px; }
         .chart-container { height: 220px; margin: 20px 0; padding: 10px; background: #fff; border-radius: 15px; }
-        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; }
+        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; min-height: 80px; }
         #music-text { font-size: 0.95rem; line-height: 1.6; color: #333; margin: 0; font-weight: 500; }
         .section-title { font-size: 0.8rem; color: #007bff; font-weight: bold; width: 100%; margin: 10px 0 5px; text-align: left; padding-left: 10px; }
     </style>
@@ -42,6 +42,7 @@
         <button class="city-btn" onclick="updateDashboard(35.8242, 127.1480, '전라북도')">전라북도</button>
         <button class="city-btn" onclick="updateDashboard(35.1595, 126.8526, '광주')">광주</button>
         <button class="city-btn" onclick="updateDashboard(33.4996, 126.5312, '제주')">제주</button>
+
         <div class="section-title">주변국 수도</div>
         <button class="city-btn" onclick="updateDashboard(35.6895, 139.6917, '도쿄 🇯🇵')">도쿄</button>
         <button class="city-btn" onclick="updateDashboard(39.9042, 116.4074, '베이징 🇨🇳')">베이징</button>
@@ -50,7 +51,7 @@
     </div>
 
     <div class="temp-display">
-        <h2 id="city-name" style="margin:0; color:#333;">날씨를 확인하는 중...</h2>
+        <h2 id="city-name" style="margin:0; color:#333;">날씨 데이터 로드 중...</h2>
         <div class="temp"><span id="temp-val">--</span>°C</div>
         <div id="desc-val">-</div>
     </div>
@@ -58,14 +59,14 @@
     <div class="chart-container"><canvas id="weatherChart"></canvas></div>
 
     <div class="music-box">
-        <small style="color:#007bff; font-weight:bold;">🎵 AI 기분 분석 음악 추천</small>
-        <p id="music-text">AI가 연결 경로를 최적화하고 있습니다...</p>
+        <small style="color:#007bff; font-weight:bold;">🎵 오픈소스 AI 음악 추천 (Hugging Face)</small>
+        <p id="music-text">AI가 날씨에 어울리는 곡을 고르고 있습니다...</p>
     </div>
 </div>
 
 <script>
-    const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; 
-    const G_KEY = 'AIzaSyAWg_egI4h-qvKDMOj3NwTmy7pzZOiHRqw'; 
+    const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; // 날씨 키
+    const HF_TOKEN = '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'; // 여기에 Hugging Face에서 발급받은 Access Token을 넣으세요
 
     let myChart;
     const weatherFix = { "온흐림": "흐림", "튼구름": "구름 조금", "조금 흐림": "구름 많음" };
@@ -108,37 +109,47 @@
         });
     }
 
+    // 🎵 Hugging Face API를 사용한 노래 추천 함수
     async function getMusic(temp, desc) {
         const mBox = document.getElementById('music-text');
-        const promptText = `날씨 ${desc}, 온도 ${temp}도. 어울리는 노래 1곡만 추천해줘.`;
-        
-        // 404 오류 방지를 위해 모든 가능성 있는 경로를 배열로 만듭니다.
-        const endpoints = [
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_KEY}`,
-            `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${G_KEY}`,
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${G_KEY}`
-        ];
+        mBox.innerText = "AI가 어울리는 음악을 분석 중입니다...";
 
-        for (let url of endpoints) {
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.candidates && data.candidates[0].content) {
-                        mBox.innerText = data.candidates[0].content.parts[0].text;
-                        return; // 성공 시 여기서 멈춤
-                    }
+        try {
+            const response = await fetch(
+                "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
+                {
+                    headers: { 
+                        "Authorization": `Bearer ${HF_TOKEN}`,
+                        "Content-Type": "application/json"
+                    },
+                    method: "POST",
+                    body: JSON.stringify({
+                        inputs: `[INST] The weather is ${desc} and the temperature is ${temp} degrees Celsius. Recommend one K-pop song (Artist - Title) that fits this mood and explain why briefly in Korean. [/INST]`,
+                        parameters: { max_new_tokens: 150 }
+                    }),
                 }
-                console.log(`경로 실패(${response.status}): ${url}`);
-            } catch (e) { console.error("연결 에러:", e); }
+            );
+
+            const result = await response.json();
+
+            // 모델이 처음 실행될 때(Loading) 발생하는 503 에러 대응
+            if (result.error && result.estimated_time) {
+                mBox.innerText = "AI 모델을 깨우는 중입니다... (약 10~20초 소요)";
+                setTimeout(() => getMusic(temp, desc), 10000); // 10초 후 재시도
+                return;
+            }
+
+            if (result[0] && result[0].generated_text) {
+                // 모델 응답에서 질문 부분(INST)을 제외한 실제 답변만 가져오기
+                const text = result[0].generated_text.split('[/INST]')[1] || result[0].generated_text;
+                mBox.innerText = text.trim();
+            } else {
+                throw new Error("Invalid API Response");
+            }
+        } catch (e) {
+            console.error("Hugging Face API Error:", e);
+            mBox.innerText = "현재 날씨에 어울리는 기분 좋은 음악 한 곡 추천드려요!";
         }
-        
-        mBox.innerText = "서버 경로 탐색에 실패했습니다. API 키의 활성화 상태를 확인해 주세요.";
     }
 
     init();
