@@ -3,28 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-Weather & Music API Dashboard</title>
+    <title>K-Weather Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f0f4f8; display: flex; justify-content: center; padding: 20px; margin: 0; }
         .card { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 580px; text-align: center; }
-        .city-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        .city-btn { padding: 6px 12px; border: 1px solid #e1e1e1; border-radius: 12px; background: white; cursor: pointer; font-size: 0.75rem; transition: 0.2s; }
+        .city-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        .city-btn { padding: 8px 14px; border: 1px solid #e1e1e1; border-radius: 12px; background: white; cursor: pointer; font-size: 0.85rem; transition: 0.2s; color: #333; }
         .city-btn:hover { background: #007bff; color: white; border-color: #007bff; }
         .temp-display { margin: 15px 0; }
         .temp { font-size: 3.5rem; font-weight: 800; color: #007bff; margin: 5px 0; }
         #desc-val { font-size: 1.2rem; color: #555; margin-bottom: 10px; }
         .chart-container { height: 220px; margin: 20px 0; padding: 10px; background: #fff; border-radius: 15px; }
-        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; min-height: 100px; }
-        #music-list { font-size: 0.9rem; line-height: 1.6; color: #333; margin: 0; padding-left: 20px; }
-        .section-title { font-size: 0.8rem; color: #007bff; font-weight: bold; width: 100%; margin: 10px 0 5px; text-align: left; padding-left: 10px; }
+        .music-box { background: #f8fbff; padding: 18px; border-radius: 15px; border: 1px solid #dbeafe; text-align: left; min-height: 120px; }
+        .music-title { color: #007bff; font-weight: bold; font-size: 0.85rem; display: block; margin-bottom: 10px; }
+        #music-list { font-size: 0.95rem; line-height: 1.8; color: #333; margin: 0; padding-left: 20px; list-style-type: disc; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <div class="city-buttons">
-        <div class="section-title">대한민국 주요 도시</div>
         <button class="city-btn" onclick="updateDashboard(37.5665, 126.9780, '서울특별시')">서울특별시</button>
         <button class="city-btn" onclick="updateDashboard(37.4563, 126.7052, '인천')">인천</button>
         <button class="city-btn" onclick="updateDashboard(37.3943, 126.9568, '안양')">안양</button>
@@ -34,7 +33,7 @@
     </div>
 
     <div class="temp-display">
-        <h2 id="city-name" style="margin:0; color:#333;">날씨 데이터 로드 중...</h2>
+        <h2 id="city-name" style="margin:0; color:#333;">날씨 로드 중...</h2>
         <div class="temp"><span id="temp-val">--</span>°C</div>
         <div id="desc-val">-</div>
     </div>
@@ -42,28 +41,26 @@
     <div class="chart-container"><canvas id="weatherChart"></canvas></div>
 
     <div class="music-box">
-        <small style="color:#007bff; font-weight:bold;">🎵 Last.fm 실시간 추천 음악</small>
-        <ul id="music-list">데이터를 불러오는 중...</ul>
+        <span class="music-title">🎧 실시간 랜덤 추천 (3곡)</span>
+        <ul id="music-list">음악을 선곡하는 중...</ul>
     </div>
 </div>
 
 <script>
-    // API 키 설정
-    const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; // OpenWeather API 키 입력
-    const L_KEY = '1518e370a2ef192ac4c5849062ba83b3';  // Last.fm API 키 입력
+    // ⚠️ API 키를 입력해 주세요.
+    const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; 
+    const L_KEY = '1518e370a2ef192ac4c5849062ba83b3';
 
     let myChart;
 
-    // 1. 날씨 용어 보정 사전 (기존 기능 유지)
     const weatherFix = { 
         "실 비": "가랑비", "실비": "가랑비", "온흐림": "흐림", 
         "튼구름": "구름 조금", "조금 흐림": "구름 많음", "박무": "옅은 안개"
     };
 
-    // 2. 날씨별 Last.fm 검색 태그 매칭
     const tagMap = {
         "가랑비": "rainy", "비": "rain", "맑음": "sunny", 
-        "흐림": "chill", "구름 조금": "happy", "눈": "winter", "안개": "ambient"
+        "흐림": "chill", "구름 조금": "happy", "눈": "winter"
     };
 
     async function updateDashboard(lat, lon, name) {
@@ -79,24 +76,32 @@
             document.getElementById('desc-val').innerText = desc;
             
             drawChart(data.main.temp);
-            getMusicFromLastFM(desc); // 음악 API 호출
+            getMusicFromLastFM(desc); 
         } catch (e) { console.error(e); }
     }
 
-    // 3. Last.fm API를 사용한 음악 추천 (신규 추가 기능)
     async function getMusicFromLastFM(desc) {
-        const musicList = document.getElementById('music-list');
+        const musicListElement = document.getElementById('music-list');
         const tag = tagMap[desc] || "kpop";
-        const url = `https://ws.audioscrobbler.com/2.0/?method=tag.gettoptracks&tag=${tag}&api_key=${L_KEY}&format=json&limit=5`;
+        const url = `https://ws.audioscrobbler.com/2.0/?method=tag.gettoptracks&tag=${tag}&api_key=${L_KEY}&format=json&limit=15`;
 
         try {
             const response = await fetch(url);
             const data = await response.json();
-            const tracks = data.tracks.track;
+            let tracks = data.tracks.track;
             
-            musicList.innerHTML = tracks.map(t => `<li><strong>${t.artist.name}</strong> - ${t.name}</li>`).join('');
+            // 🛑 셔플 로직: 가져온 곡들을 무작위로 섞음
+            const shuffled = tracks.sort(() => 0.5 - Math.random());
+            
+            // 🛑 상위 3곡 선택
+            const selectedTracks = shuffled.slice(0, 3);
+            
+            musicListElement.innerHTML = selectedTracks.map(t => 
+                `<li><strong>${t.artist.name}</strong> - ${t.name}</li>`
+            ).join('');
+
         } catch (error) {
-            musicList.innerHTML = "<li>음악 데이터를 가져오지 못했습니다. (API 키 확인 필요)</li>";
+            musicListElement.innerHTML = "<li>음악 정보를 불러오지 못했습니다.</li>";
         }
     }
 
@@ -116,7 +121,6 @@
         });
     }
 
-    // 초기 실행
     updateDashboard(37.5665, 126.9780, '서울특별시');
 </script>
 </body>
