@@ -3,146 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Analytics & Music</title>
-    <!-- 그래프 라이브러리 추가 -->
+    <title>Global Weather Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f8f9fa; display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 500px; text-align: center; }
-        
-        .city-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
-        .city-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 15px; background: white; cursor: pointer; font-size: 0.8rem; }
-        .city-btn:active { background: #007bff; color: white; }
-        
-        .temp-display { margin: 20px 0; }
-        .temp { font-size: 3rem; font-weight: bold; color: #007bff; }
-        
-        /* 그래프 영역 */
-        .chart-container { position: relative; margin: 20px 0; height: 200px; width: 100%; }
-        
-        .music-box { background: #f0f7ff; padding: 15px; border-radius: 15px; border-left: 5px solid #007bff; text-align: left; margin-top: 20px; }
-        #music-text { font-size: 0.9rem; line-height: 1.6; color: #333; }
+        body { font-family: 'Pretendard', -apple-system, sans-serif; background: #f4f7fa; display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .card { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.1); width: 100%; max-width: 480px; text-align: center; }
+        .city-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 15px; }
+        .city-btn { padding: 5px 12px; border: 1px solid #eee; border-radius: 20px; background: white; cursor: pointer; font-size: 0.75rem; transition: 0.2s; }
+        .city-btn:hover { background: #007bff; color: white; }
+        .temp-display { margin: 15px 0; }
+        .temp { font-size: 3.2rem; font-weight: 800; color: #007bff; letter-spacing: -2px; }
+        #desc-val { font-size: 1.1rem; color: #666; font-weight: 500; }
+        .chart-container { height: 180px; margin: 20px 0; }
+        .music-box { background: #f0f7ff; padding: 18px; border-radius: 18px; border: 1px solid #d1e9ff; text-align: left; margin-top: 15px; }
+        #music-text { font-size: 0.92rem; line-height: 1.6; color: #333; margin: 0; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <div class="city-buttons">
+        <!-- 국내 주요 지역 -->
         <button class="city-btn" onclick="updateDashboard(37.5665, 126.9780, '서울')">서울</button>
         <button class="city-btn" onclick="updateDashboard(35.1796, 129.0756, '부산')">부산</button>
+        <button class="city-btn" onclick="updateDashboard(35.8714, 128.6014, '대구')">대구</button>
+        <button class="city-btn" onclick="updateDashboard(37.4563, 126.7052, '인천')">인천</button>
         <button class="city-btn" onclick="updateDashboard(37.6584, 126.8320, '고양')">고양</button>
-        <button class="city-btn" onclick="updateDashboard(35.6895, 139.6917, '도쿄')">도쿄</button>
-        <button class="city-btn" onclick="updateDashboard(40.7128, -74.0060, '뉴욕')">뉴욕</button>
+        <!-- 주변국 수도 -->
+        <button class="city-btn" onclick="updateDashboard(35.6895, 139.6917, '도쿄')">도쿄 🇯🇵</button>
+        <button class="city-btn" onclick="updateDashboard(39.9042, 116.4074, '베이징')">베이징 🇨🇳</button>
+        <button class="city-btn" onclick="updateDashboard(21.0285, 105.8542, '하노이')">하노이 🇻🇳</button>
+        <button class="city-btn" onclick="updateDashboard(13.7563, 100.5018, '방콕')">방콕 🇹🇭</button>
     </div>
 
     <div class="temp-display">
-        <h2 id="city-name" style="margin:0; color:#666;">내 위치</h2>
+        <h2 id="city-name" style="margin:0; color:#444;">내 위치</h2>
         <div class="temp"><span id="temp-val">--</span>°C</div>
-        <div id="desc-val" style="color:#888;">날씨 정보 불러오는 중...</div>
+        <div id="desc-val">날씨 분석 중...</div>
     </div>
 
-    <!-- 📈 그래프가 그려질 캔버스 -->
-    <div class="chart-container">
-        <canvas id="weatherChart"></canvas>
-    </div>
+    <div class="chart-container"><canvas id="weatherChart"></canvas></div>
 
     <div class="music-box">
-        <strong style="color:#007bff; font-size:0.8rem;">🎵 내 위치 기반 음악 추천</strong>
-        <p id="music-text">데이터 분석 중...</p>
+        <small style="color:#007bff; font-weight:bold;">🎵 AI 기분 분석 추천</small>
+        <p id="music-text">Gemini가 음악을 고르고 있습니다...</p>
     </div>
 </div>
 
 <script>
     const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; 
     const G_KEY = 'AIzaSyDU3FXhiQCa-Hvp_ZYdj8vV6fFADqV4zXI';
-    let myChart; // 차트 객체 저장용
+    let myChart;
 
-    // 1. 초기화: 내 위치 찾기
-    function init() {
+    // 어색한 날씨 번역 교정 사전
+    const weatherFix = { "온흐림": "흐림", "튼구름": "구름 조금", "조금 흐림": "구름 많음" };
+
+    async function init() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
-                const wData = await fetchWeather(lat, lon);
-                
-                // 내 위치 기준으로 음악 추천 고정
-                updateMusic(wData.main.temp, wData.weather[0].description);
-                // 화면 대시보드 업데이트
-                updateDashboard(lat, lon, "내 위치");
-            });
+                updateDashboard(pos.coords.latitude, pos.coords.longitude, "내 위치", true);
+            }, () => updateDashboard(37.6584, 126.8320, "고양", true));
         }
     }
 
-    // 2. 통합 업데이트 (날씨 + 그래프)
-    async function updateDashboard(lat, lon, name) {
-        const wData = await fetchWeather(lat, lon);
-        if (!wData) return;
-
-        // 텍스트 업데이트
-        document.getElementById('city-name').innerText = name;
-        document.getElementById('temp-val').innerText = Math.round(wData.main.temp);
-        document.getElementById('desc-val').innerText = wData.weather[0].description;
-
-        // 그래프 그리기 (현재 기온 기준으로 한달치 데이터 시뮬레이션)
-        drawChart(wData.main.temp);
-    }
-
-    async function fetchWeather(lat, lon) {
+    async function updateDashboard(lat, lon, name, isInitial = false) {
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
-            return await res.json();
-        } catch (e) { return null; }
+            const data = await res.json();
+            
+            let desc = data.weather[0].description;
+            // "온흐림" 같은 어색한 단어 교정
+            desc = weatherFix[desc] || desc;
+
+            document.getElementById('city-name').innerText = name;
+            document.getElementById('temp-val').innerText = Math.round(data.main.temp);
+            document.getElementById('desc-val').innerText = desc;
+
+            drawChart(data.main.temp);
+            // 초기 로딩 시에만 음악 추천 실행 (또는 버튼 누를 때마다 실행하고 싶으면 조건문 제거)
+            if (isInitial || name !== "내 위치") getMusic(data.main.temp, desc);
+        } catch (e) { console.error(e); }
     }
 
-    // 3. 그래프 그리기 함수 (Chart.js 사용)
-    function drawChart(currentTemp) {
-        const ctx = document.getElementById('weatherChart').getContext('2d');
-        
-        // 30일치 가짜 데이터 생성 (현재 기온 기준 ±3도 랜덤 변화)
-        const labels = Array.from({length: 30}, (_, i) => `${i+1}일 전`).reverse();
-        const dataValues = Array.from({length: 30}, () => currentTemp + (Math.random() * 6 - 3));
-
-        // 기존 차트가 있으면 삭제하고 새로 그림
-        if (myChart) myChart.destroy();
-
-        myChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: '최근 30일 기온 변화(추정)',
-                    data: dataValues,
-                    borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: false },
-                    x: { display: false } // x축 라벨은 복잡해서 숨김
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-
-    async function updateMusic(temp, desc) {
+    async function getMusic(temp, desc) {
+        document.getElementById('music-text').innerText = "추천 중...";
         try {
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: `현재 위치 날씨는 ${desc}, ${temp}도야. 어울리는 음악 한 문장 추천해줘.` }] }] })
+                body: JSON.stringify({ contents: [{ parts: [{ text: `날씨가 ${desc}이고 ${temp}도야. 어울리는 음악 장르와 노래 1곡을 한 문장으로 추천해줘.` }] }] })
             });
-            const data = await res.json();
-            document.getElementById('music-text').innerText = data.candidates[0].content.parts[0].text;
+            const result = await res.json();
+            // Gemini API 응답 구조 확인 및 출력
+            const reply = result.candidates[0].content.parts[0].text;
+            document.getElementById('music-text').innerText = reply;
         } catch (e) {
-            document.getElementById('music-text').innerText = "음악 정보를 불러오지 못했습니다.";
+            document.getElementById('music-text').innerText = "음악 추천 서비스 점검 중입니다.";
         }
+    }
+
+    function drawChart(currentTemp) {
+        const ctx = document.getElementById('weatherChart').getContext('2d');
+        const dataValues = Array.from({length: 15}, () => currentTemp + (Math.random() * 4 - 2));
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(15).fill(''),
+                datasets: [{ data: dataValues, borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true, tension: 0.4, pointRadius: 2 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { display: false } } } }
+        });
     }
 
     init();
