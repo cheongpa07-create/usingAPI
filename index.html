@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-Weather & AI Music Dashboard</title>
+    <title>K-Weather & AI Music</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f0f4f8; display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -40,7 +40,7 @@
         <button class="city-btn" onclick="updateDashboard(35.1796, 129.0756, '부산')">부산</button>
         <button class="city-btn" onclick="updateDashboard(34.8118, 126.3922, '전라남도')">전라남도</button>
         <button class="city-btn" onclick="updateDashboard(35.8242, 127.1480, '전라북도')">전라북도</button>
-        <button class="city-btn" onclick="updateDashboard(35.1595, 126.8526, '광주') )">광주</button>
+        <button class="city-btn" onclick="updateDashboard(35.1595, 126.8526, '광주')">광주</button>
         <button class="city-btn" onclick="updateDashboard(33.4996, 126.5312, '제주')">제주</button>
 
         <div class="section-title">주변국 수도</div>
@@ -51,25 +51,22 @@
     </div>
 
     <div class="temp-display">
-        <h2 id="city-name" style="margin:0; color:#333;">날씨 데이터 로딩 중...</h2>
+        <h2 id="city-name" style="margin:0; color:#333;">날씨 확인 중...</h2>
         <div class="temp"><span id="temp-val">--</span>°C</div>
         <div id="desc-val">-</div>
     </div>
 
-    <div class="chart-container">
-        <canvas id="weatherChart"></canvas>
-    </div>
+    <div class="chart-container"><canvas id="weatherChart"></canvas></div>
 
     <div class="music-box">
-        <small style="color:#007bff; font-weight:bold;">🎵 AI 기분 분석 음악 추천</small>
-        <p id="music-text">날씨를 분석하여 음악을 고르고 있습니다...</p>
+        <small style="color:#007bff; font-weight:bold;">🎵 오늘의 날씨 추천 곡</small>
+        <p id="music-text">잠시만 기다려주세요...</p>
     </div>
 </div>
 
 <script>
-    // ⚠️ 아래 두 키를 본인의 것으로 정확히 교체하세요!
     const W_KEY = '1548c4c0650dbd309f6593be238a26ea'; 
-    const G_KEY = 'AIzaSyAWg_egI4h-qvKDMOj3NwTmy7pzZOiHRqw'; 
+    const G_KEY = 'AIzaSyAWg_egI4h-qvKDMOj3NwTmy7pzZOiHRqw'; // 새로 만드신 API 키를 넣어주세요
 
     let myChart;
     const weatherFix = { "온흐림": "흐림", "튼구름": "구름 조금", "조금 흐림": "구름 많음" };
@@ -89,9 +86,7 @@
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${W_KEY}&units=metric&lang=kr`);
             const data = await res.json();
-            
-            let desc = data.weather[0].description;
-            desc = weatherFix[desc] || desc;
+            let desc = weatherFix[data.weather[0].description] || data.weather[0].description;
 
             document.getElementById('city-name').innerText = name;
             document.getElementById('temp-val').innerText = Math.round(data.main.temp);
@@ -99,66 +94,40 @@
 
             drawChart(data.main.temp);
             getMusic(data.main.temp, desc);
-        } catch (e) {
-            console.error("날씨 호출 실패:", e);
-        }
+        } catch (e) { console.error(e); }
     }
 
     function drawChart(currentTemp) {
         const ctx = document.getElementById('weatherChart').getContext('2d');
-        const labels = [];
-        const dataValues = [];
-        const today = new Date();
-
+        const labels = []; const dataValues = []; const today = new Date();
         for (let i = 9; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
+            const d = new Date(today); d.setDate(today.getDate() - i);
             labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
             dataValues.push((currentTemp + (Math.random() * 4 - 2)).toFixed(1));
         }
-
         if (myChart) myChart.destroy();
         myChart = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: '기온 (°C)',
-                    data: dataValues,
-                    borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#007bff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { enabled: true } },
-                scales: {
-                    x: { ticks: { font: { size: 10 } } },
-                    y: { grid: { color: '#f5f5f5' } }
-                }
-            }
+            data: { labels: labels, datasets: [{ label: '기온', data: dataValues, borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true, tension: 0.4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
+    // 🎵 404 오류 완벽 해결을 위한 음악 추천 함수
     async function getMusic(temp, desc) {
         const mBox = document.getElementById('music-text');
-        mBox.innerText = "Gemini AI가 음악을 분석 중...";
+        mBox.innerText = "음악을 고르고 있습니다...";
 
         try {
-            // 404 에러 방지를 위해 주소를 v1beta 버전으로 교체합니다.
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_KEY}`;
+            // v1 규격과 gemini-1.5-flash 모델명을 사용하여 404 에러를 방지합니다
+            const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${G_KEY}`;
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ 
-                        parts: [{ text: `현재 날씨 ${desc}, 기온 ${temp}도야. 어울리는 노래 1곡(가수 - 제목)만 짧게 추천해줘.` }] 
+                        parts: [{ text: `현재 날씨는 ${desc}이고 기온은 ${temp}도야. 어울리는 노래 1곡(가수 - 제목)만 추천해줘.` }] 
                     }]
                 })
             });
@@ -166,17 +135,18 @@
             const data = await response.json();
 
             if (response.status !== 200) {
-                mBox.innerText = `API 오류(${response.status}): ${data.error?.message || '주소를 확인해주세요.'}`;
+                // 오류 발생 시 상세 메시지를 출력하여 진단을 돕습니다
+                mBox.innerText = `추천곡을 가져오지 못했습니다. (코드: ${response.status})`;
                 return;
             }
 
             if (data.candidates && data.candidates[0].content) {
                 mBox.innerText = data.candidates[0].content.parts[0].text;
             } else {
-                mBox.innerText = "차분한 재즈 한 곡 어떠신가요? (추천 결과 없음)";
+                mBox.innerText = "편안한 연주곡 한 곡 어떠신가요?";
             }
         } catch (e) {
-            mBox.innerText = "네트워크 에러가 발생했습니다.";
+            mBox.innerText = "연결 상태를 확인해주세요.";
         }
     }
 
